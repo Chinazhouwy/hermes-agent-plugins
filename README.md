@@ -2,6 +2,13 @@
 
 个人维护的 Hermes Agent 插件集合。
 
+## Hermes 源码研读
+
+详细文档：[Hermes 插件、Hook 与扩展点源码详解](skills/interview-practice/references/hermes-plugin-hooks-guide.md)
+
+文档基于服务器实际安装的 Hermes Agent `0.18.0` 源码，包含插件加载、
+全部 Hook、Middleware、Tool/Skill/Memory 边界、当前插件执行链和七个实践 Action。
+
 ## 代码在哪里
 
 仓库目前只有一个插件，核心代码在：
@@ -15,6 +22,8 @@ plugins/model-telemetry/
 scripts/install.sh    # 将插件复制到 Hermes 配置目录
 skills/interview-practice/SKILL.md
                       # 精简、可版本管理的面试练习 Skill
+skills/interview-practice/references/hermes-plugin-hooks-guide.md
+                      # Hermes 插件、Hook、Middleware 源码研读资料
 ```
 
 推荐阅读顺序：

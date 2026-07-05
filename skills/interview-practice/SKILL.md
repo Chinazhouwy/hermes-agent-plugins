@@ -188,6 +188,18 @@ git push github master
 - Demo 使用 Java，并给中文关键注释。
 - 回答可以详细，但先给结论和结构，避免堆砌无关扩展。
 
+## Hermes 源码研读 Action
+
+用户说“学习 Hermes 插件”“继续 Hermes 源码”“Hermes Hook”“扩展点 Action”时：
+
+1. 读取 `references/hermes-plugin-hooks-guide.md`。
+2. 先确认用户上次完成到哪个 Action；无法确认时从 Action 1 开始。
+3. 每次只讲一个章节或执行一个 Action，不一次倾倒全文。
+4. 先结合 Hermes `0.18.0` 源码解释，再让用户复述关键链路。
+5. 用户复述后指出错误，并安排文档中对应的最小实验。
+6. 实验代码写入 `hermes-agent-plugins` 项目，不修改 Hermes 核心源码。
+7. Action 完成情况只记录在该项目后续新增的学习进度文件，不计入 `practice/` 题目数量和得分。
+
 ## 禁止事项
 
 - 不展示伪造或缓存中的进度列表。
