@@ -1,3 +1,13 @@
+"""Hermes 模型信息、Token 统计和面试会话增强插件。
+
+阅读入口在文件末尾的 register()。Hermes 会通过那里注册的 Hook，在请求前后
+调用本文件中的函数。代码按三个功能分区：
+
+1. 统计每轮请求的模型和 Token；
+2. 识别面试会话，并在条件满足时切换模型；
+3. 面试时只把当前题及其追问发送给模型。
+"""
+
 from __future__ import annotations
 
 import math
@@ -11,6 +21,8 @@ from typing import Any
 
 @dataclass
 class TurnUsage:
+    """一次 Hermes 回复可能包含多次模型调用，这里累计整轮用量。"""
+
     provider: str = ""
     model: str = ""
     input_tokens: int = 0
@@ -18,10 +30,18 @@ class TurnUsage:
     pending_inputs: list[int] = field(default_factory=list)
 
 
+# session_id -> 本轮累计用量。回复发出后会删除，避免统计到下一轮。
 _usage_by_session: dict[str, TurnUsage] = {}
+
+# Gateway 使用 session_key 设置模型覆盖，LLM 中间件使用 session_id 裁剪上下文，
+# 因此需要同时记住两种标识。
 _interview_session_keys: set[str] = set()
 _interview_session_ids: set[str] = set()
+
+# Hermes 可能并发处理多个微信会话，共享集合和字典必须加锁。
 _lock = threading.Lock()
+
+# 用户说“开始模拟面试”“继续面试”等话时，进入面试状态。
 _INTERVIEW_START = re.compile(
     r"(开始|继续|进入|恢复).{0,4}(模拟)?面试|"
     r"(模拟)?面试.{0,4}(开始|继续)|"
@@ -31,7 +51,11 @@ _INTERVIEW_END = re.compile(
     r"(结束|停止|退出|暂停).{0,4}(模拟)?面试|"
     r"(模拟)?面试.{0,4}(结束|停止)"
 )
+
+# 只有显式开启路由且代理、凭据都可用时，才会切换到这个模型。
 _INTERVIEW_MODEL = "openai/gpt-5.4-mini"
+
+# 用于从完整聊天记录中定位“最新一道题”的开头。
 _QUESTION_MARKER = re.compile(
     r"(?im)(?:^|\n)\s*(?:#{1,6}\s*)?"
     r"(?:第\s*\d+\s*题\b|"
@@ -41,7 +65,13 @@ _QUESTION_MARKER = re.compile(
 )
 
 
+# ---------------------------------------------------------------------------
+# 一、模型与 Token 统计
+# ---------------------------------------------------------------------------
+
 def reset_state() -> None:
+    """清空插件内存状态，主要供自动化测试和插件重载使用。"""
+
     with _lock:
         _usage_by_session.clear()
         _interview_session_keys.clear()
@@ -66,6 +96,8 @@ def on_pre_api_request(
     approx_input_tokens: int = 0,
     **_: Any,
 ) -> None:
+    """请求发出前保存估算输入量，供不返回 usage 的模型兜底。"""
+
     with _lock:
         usage = _state(session_id)
         usage.provider = provider or usage.provider
@@ -82,6 +114,8 @@ def on_post_api_request(
     assistant_content_chars: int = 0,
     **_: Any,
 ) -> None:
+    """模型返回后优先累计真实 usage，没有真实值时才使用估算值。"""
+
     raw = usage if isinstance(usage, dict) else {}
     real_input = _integer(raw.get("input_tokens") or raw.get("prompt_tokens"))
     real_output = _integer(raw.get("output_tokens") or raw.get("completion_tokens"))
@@ -90,8 +124,10 @@ def on_post_api_request(
         turn = _state(session_id)
         turn.provider = provider or turn.provider
         turn.model = response_model or model or turn.model
+        # pre/post Hook 可能在一轮内调用多次，按进入顺序消费估算值。
         estimated_input = turn.pending_inputs.pop(0) if turn.pending_inputs else 0
         turn.input_tokens += real_input or estimated_input
+        # 某些供应商不返回输出 Token，中文/英文混合文本粗略按 4 字符一个 Token。
         turn.output_tokens += real_output or math.ceil(
             _integer(assistant_content_chars) / 4
         )
@@ -103,7 +139,10 @@ def transform_output(
     model: str = "",
     **_: Any,
 ) -> str:
+    """在用户最终看到的回复末尾追加实际模型和本轮 Token 用量。"""
+
     with _lock:
+        # pop 表示一轮回复到这里已经结束，下一轮重新统计。
         turn = _usage_by_session.pop(session_id or "unknown", None)
 
     provider = turn.provider if turn else ""
@@ -124,7 +163,13 @@ def transform_output(
     )
 
 
+# ---------------------------------------------------------------------------
+# 二、面试会话识别与可选的 GPT 路由
+# ---------------------------------------------------------------------------
+
 def _openrouter_api_key() -> str:
+    """先从 Hermes 凭据池取 Key，再回退到环境变量。"""
+
     try:
         from hermes_cli.auth import read_credential_pool
 
@@ -140,6 +185,8 @@ def _openrouter_api_key() -> str:
 
 
 def _proxy_available() -> bool:
+    """快速检查远程机本地代理端口是否可连接。"""
+
     try:
         with socket.create_connection(("127.0.0.1", 17897), timeout=0.3):
             return True
@@ -150,6 +197,8 @@ def _proxy_available() -> bool:
 def _remember_interview_session(
     session_key: str, source: Any, session_store: Any = None
 ) -> None:
+    """记录面试会话的两种 ID，供模型路由和上下文裁剪分别使用。"""
+
     session_id = ""
     if session_store is not None:
         try:
@@ -169,6 +218,12 @@ def route_interview_session(
     session_store: Any = None,
     **_: Any,
 ):
+    """根据用户消息进入或退出面试状态，并按条件覆盖当前会话模型。
+
+    这个函数失败时始终返回 None，让 Hermes 继续使用默认模型。这样即使代理、
+    OpenRouter 或插件自身出现问题，也不会阻断普通面试对话。
+    """
+
     if event is None or gateway is None:
         return None
     text = str(getattr(event, "text", "") or "").strip()
@@ -185,6 +240,7 @@ def route_interview_session(
         return None
 
     if _INTERVIEW_END.search(text):
+        # 删除会话级模型覆盖后，Hermes 会自然恢复配置里的默认模型。
         gateway._session_model_overrides.pop(session_key, None)
         with _lock:
             _interview_session_keys.discard(session_key)
@@ -206,6 +262,8 @@ def route_interview_session(
 
     if not is_start:
         return None
+
+    # GPT 路由默认关闭。三个条件必须同时满足：开关、代理、API Key。
     if os.getenv("HERMES_INTERVIEW_GPT_ROUTING", "").strip().lower() not in {
         "1",
         "true",
@@ -229,6 +287,10 @@ def route_interview_session(
     return None
 
 
+# ---------------------------------------------------------------------------
+# 三、面试请求整形：按题隔离上下文，并限制 GPT 输出
+# ---------------------------------------------------------------------------
+
 def cap_interview_gpt_output(
     request: dict[str, Any],
     provider: str = "",
@@ -236,6 +298,8 @@ def cap_interview_gpt_output(
     session_id: str = "",
     **_: Any,
 ) -> dict[str, Any]:
+    """在模型请求发出前裁剪面试历史，并限制 GPT 单次输出成本。"""
+
     shaped = _trim_to_current_interview_question(request, session_id)
     if model.startswith("openai/gpt-"):
         capped = dict(shaped)
@@ -250,6 +314,8 @@ def cap_interview_gpt_output(
 
 
 def _message_text(message: Any) -> str:
+    """兼容字符串和 OpenAI content parts 两种消息格式。"""
+
     if not isinstance(message, dict):
         return ""
     content = message.get("content", "")
@@ -267,6 +333,11 @@ def _message_text(message: Any) -> str:
 def _trim_to_current_interview_question(
     request: dict[str, Any], session_id: str
 ) -> dict[str, Any]:
+    """只保留系统规则、最新题目，以及这道题之后的回答和追问。
+
+    原始聊天记录不会被修改或删除；这里只复制并整形即将发送给模型的 request。
+    """
+
     with _lock:
         is_interview = session_id in _interview_session_ids
     if not is_interview:
@@ -277,6 +348,7 @@ def _trim_to_current_interview_question(
     if not isinstance(messages, list):
         return request
 
+    # 不断覆盖索引，循环结束后得到最后一个题目标记，也就是当前题。
     question_index = -1
     for index, message in enumerate(messages):
         if (
@@ -288,6 +360,7 @@ def _trim_to_current_interview_question(
     if question_index < 0:
         return request
 
+    # 早期历史中只保留 system/developer 规则，之前题目的对话全部省略。
     prefix = [
         message
         for message in messages[:question_index]
@@ -303,7 +376,13 @@ def _trim_to_current_interview_question(
     return shaped
 
 
+# ---------------------------------------------------------------------------
+# 四、插件入口
+# ---------------------------------------------------------------------------
+
 def register(ctx) -> None:
+    """Hermes 加载插件时调用：把上面的功能挂到对应生命周期。"""
+
     ctx.register_hook("pre_gateway_dispatch", route_interview_session)
     ctx.register_hook("pre_api_request", on_pre_api_request)
     ctx.register_hook("post_api_request", on_post_api_request)
