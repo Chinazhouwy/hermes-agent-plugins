@@ -13,6 +13,8 @@ plugins/model-telemetry/
 └── test_plugin.py    # 自动化测试，可当作使用示例看
 
 scripts/install.sh    # 将插件复制到 Hermes 配置目录
+skills/interview-practice/SKILL.md
+                      # 精简、可版本管理的面试练习 Skill
 ```
 
 推荐阅读顺序：
