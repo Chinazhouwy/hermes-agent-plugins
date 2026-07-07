@@ -8,7 +8,7 @@ description: 用户进行 Java 后端或 AI Agent 面试刷题、说“下一题
 ## 核心原则
 
 1. 一次只处理一道题及其追问。
-2. 进度、题号、来源、得分和日期只从 `~/interview/practice/` 的实际文件读取。
+2. 进度、题号、来源、得分和日期只从 `/root/interview/content/opportunity/practice/` 的实际文件读取。
 3. 出题时不显示答案；用户回答后立即给评分和完整讲解。
 4. 用户可以继续追问，追问属于当前题，保存时完整记录。
 5. 不因一次对话修改本 Skill。新偏好先记录到当日会话，只有人工维护时才评估是否固化。
@@ -18,16 +18,16 @@ description: 用户进行 Java 后端或 AI Agent 面试刷题、说“下一题
 
 每次开始、恢复或用户质疑进度时，按顺序读取：
 
-1. `~/interview/practice/daily-log.md`：每天实际完成和顺延事实。
-2. `~/interview/practice/README.md`：已完成题目、文件和得分。
-3. `~/interview/practice/active-batch-plan.md`：后续题目顺序和来源。
-4. `~/interview/practice/review-schedule.md`：回顾轮次和到期日期。
-5. 当前题对应的 `~/interview/practice/NN-*.md`：本题已有回答和追问。
+1. `/root/interview/content/opportunity/practice/daily-log.md`：每天实际完成和顺延事实。
+2. `/root/interview/content/opportunity/practice/README.md`：已完成题目、文件和得分。
+3. `/root/interview/content/opportunity/practice/active-batch-plan.md`：后续题目顺序和来源。
+4. `/root/interview/content/opportunity/practice/review-schedule.md`：回顾轮次和到期日期。
+5. 当前题对应的 `/root/interview/content/opportunity/practice/NN-*.md`：本题已有回答和追问。
 
 不要用聊天记忆代替文件。文件冲突时先执行：
 
 ```bash
-cd ~/interview
+cd /root/interview
 git status --short
 git pull --rebase origin master
 ```
@@ -40,7 +40,7 @@ git pull --rebase origin master
 
 1. 读取上述四个进度文件。
 2. 从 `active-batch-plan.md` 找第一道未完成且未标记“待补档”的题。
-3. 用 `practice/` 文件和 README 再确认它没有完成。
+3. 用 `content/opportunity/practice/` 文件和 README 再确认它没有完成。
 4. 只展示今日简要进度和这一道题，不展示全部 200 道列表。
 
 用户说“你怎么又失忆了”“进度不对”时，停止推断，重新读取文件后纠正。
@@ -90,7 +90,7 @@ git pull --rebase origin master
 
 ## 保存 Practice 文件
 
-用户完成初次回答后，将内容保存到 `~/interview/practice/NN-topic.md`。若文件已存在，追加本轮追问，不覆盖旧轮次。
+用户完成初次回答后，将内容保存到 `/root/interview/content/opportunity/practice/NN-topic.md`。若文件已存在，追加本轮追问，不覆盖旧轮次。
 
 固定 frontmatter：
 
@@ -129,7 +129,7 @@ source:
 - “GPT 纠错”只纠正技术内容，不改写用户原话。
 - 多轮讨论在“追问记录”下按日期和轮次追加。
 - 初次完成标记 R0；回顾轮次按完成日期计算，不按“第几次回顾”猜测。
-- 新建或修改后同步更新 `practice/README.md`、`review-schedule.md` 和 `daily-log.md`。
+- 新建或修改后同步更新 `content/opportunity/practice/README.md`、`content/opportunity/practice/review-schedule.md` 和 `content/opportunity/practice/daily-log.md`。
 
 ## Daily Log 固定格式
 
@@ -144,7 +144,7 @@ source:
 - 回顾完成：#N（R1）；无则写“无”
 - 回顾顺延：#N（R1，P0）；无则写“无”
 - 次日新题：#N、#N；未确定写“unknown”
-- 新增或修改文件：`practice/文件.md`；无则写“无”
+- 新增或修改文件：`content/opportunity/practice/文件.md`；无则写“无”
 - 提交：`commit_hash`；未提交写“pending”
 - 推送：Gitee 成功/失败/pending；GitHub 成功/失败/pending
 ```
@@ -156,9 +156,9 @@ source:
 每道题首次保存或追问整理完成后：
 
 ```bash
-cd ~/interview
+cd /root/interview
 git status --short
-git add practice/NN-topic.md practice/README.md practice/review-schedule.md practice/daily-log.md
+git add content/opportunity/practice/NN-topic.md content/opportunity/practice/README.md content/opportunity/practice/review-schedule.md content/opportunity/practice/daily-log.md
 git commit -m "feat: 第N题 主题"
 ```
 

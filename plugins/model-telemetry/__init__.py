@@ -194,6 +194,44 @@ def _proxy_available() -> bool:
         return False
 
 
+def _clear_session_model_override(gateway: Any, session_key: str) -> None:
+    """清除会话级模型覆盖，优先使用公开 API，兜底兼容旧 Hermes 私有字段。"""
+
+    clear = getattr(gateway, "clear_session_model_override", None)
+    if callable(clear):
+        clear(session_key)
+        return
+    lock = getattr(gateway, "_session_model_overrides_lock", None)
+    overrides = getattr(gateway, "_session_model_overrides", None)
+    if not isinstance(overrides, dict):
+        return
+    if lock is not None and hasattr(lock, "__enter__"):
+        with lock:
+            overrides.pop(session_key, None)
+        return
+    overrides.pop(session_key, None)
+
+
+def _set_session_model_override(
+    gateway: Any, session_key: str, override: dict[str, Any]
+) -> None:
+    """设置会话级模型覆盖，优先使用公开 API，兜底兼容旧 Hermes 私有字段。"""
+
+    setter = getattr(gateway, "set_session_model_override", None)
+    if callable(setter):
+        setter(session_key, override)
+        return
+    lock = getattr(gateway, "_session_model_overrides_lock", None)
+    overrides = getattr(gateway, "_session_model_overrides", None)
+    if not isinstance(overrides, dict):
+        return
+    if lock is not None and hasattr(lock, "__enter__"):
+        with lock:
+            overrides[session_key] = override
+        return
+    overrides[session_key] = override
+
+
 def _remember_interview_session(
     session_key: str, source: Any, session_store: Any = None
 ) -> None:
@@ -241,7 +279,7 @@ def route_interview_session(
 
     if _INTERVIEW_END.search(text):
         # 删除会话级模型覆盖后，Hermes 会自然恢复配置里的默认模型。
-        gateway._session_model_overrides.pop(session_key, None)
+        _clear_session_model_override(gateway, session_key)
         with _lock:
             _interview_session_keys.discard(session_key)
             if session_store is not None:
@@ -277,13 +315,17 @@ def route_interview_session(
     api_key = _openrouter_api_key()
     if not api_key:
         return None
-    gateway._session_model_overrides[session_key] = {
-        "model": _INTERVIEW_MODEL,
-        "provider": "openrouter",
-        "api_key": api_key,
-        "base_url": "https://openrouter.ai/api/v1",
-        "api_mode": "chat_completions",
-    }
+    _set_session_model_override(
+        gateway,
+        session_key,
+        {
+            "model": _INTERVIEW_MODEL,
+            "provider": "openrouter",
+            "api_key": api_key,
+            "base_url": "https://openrouter.ai/api/v1",
+            "api_mode": "chat_completions",
+        },
+    )
     return None
 
 
