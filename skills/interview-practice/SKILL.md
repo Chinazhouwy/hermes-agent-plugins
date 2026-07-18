@@ -1,210 +1,144 @@
 ---
 name: interview-practice
-description: 用户进行 Java 后端或 AI Agent 面试刷题、说“下一题/下一次/继续/来一题/出题”、回答当前题、追问答案，或要求保存、回顾、整理当日进度时使用。
+description: 用户说下一题、继续、来一题、回答面试题、追问答案、保存练习、项目研读或回顾进度时使用。
 ---
 
 # 面试练习
 
-## 核心原则
+## 数据源
 
-1. 一次只处理一道题及其追问。
-2. 进度、题号、来源、得分和日期只从 `/root/interview/content/opportunity/practice/` 的实际文件读取。
-3. 出题时不显示答案；用户回答后立即给评分和完整讲解。
-4. 用户可以继续追问，追问属于当前题，保存时完整记录。
-5. 不因一次对话修改本 Skill。新偏好先记录到当日会话，只有人工维护时才评估是否固化。
-6. 不确定的技术事实明确说不确定并查证，禁止凭印象补全。
+仓库为 `~/interview`，唯一练习目录是 `content/opportunity/practice/`。
 
-## 唯一数据源
+开始、恢复或用户质疑进度时，按顺序读取：
 
-每次开始、恢复或用户质疑进度时，按顺序读取：
+1. `daily-log.md`
+2. `README.md`
+3. `active-batch-plan.md`
+4. `review-schedule.md`
+5. 当前题 `NN-*.md`
 
-1. `/root/interview/content/opportunity/practice/daily-log.md`：每天实际完成和顺延事实。
-2. `/root/interview/content/opportunity/practice/README.md`：已完成题目、文件和得分。
-3. `/root/interview/content/opportunity/practice/active-batch-plan.md`：后续题目顺序和来源。
-4. `/root/interview/content/opportunity/practice/review-schedule.md`：回顾轮次和到期日期。
-5. 当前题对应的 `/root/interview/content/opportunity/practice/NN-*.md`：本题已有回答和追问。
+进度、题号、得分、日期和完成状态只认这些结构化文件，不用聊天记忆、文件时间或旧路径
+猜测。四份文件不一致时先报告并修复，不继续抽题。
 
-不要用聊天记忆代替文件。文件冲突时先执行：
+## 两种轨道
 
-```bash
-cd /root/interview
-git status --short
-git pull --rebase origin master
-```
+出题前先根据 `active-batch-plan.md` 的备注确认轨道。
 
-若工作区存在未提交修改，不得强行 pull、stash、reset 或覆盖；先报告冲突。
+### 正式模拟
 
-## 状态恢复
+- 题目来自真实面经、通用技术问题或已经完成的项目经历。
+- 按正式题号顺序出题，记录原始回答、评分、纠错和回顾轮次。
+- 工作日 3 道新题，周末和中国法定休息日 5 道；旧题回顾不占新题配额。
 
-用户说“下一题”“下一次”“继续”“今天做什么”时：
+### 项目研读
 
-1. 读取上述四个进度文件。
-2. 从 `active-batch-plan.md` 找第一道未完成且未标记“待补档”的题。
-3. 用 `content/opportunity/practice/` 文件和 README 再确认它没有完成。
-4. 只展示今日简要进度和这一道题，不展示全部 200 道列表。
+- 题目来自用户尚未完成的自研项目、设计草稿或学习文档。
+- 开头明确说“这是项目研读题，不是通用面试八股”，并先用中文解释项目特有术语。
+- 讨论可选方案、边界和验证方式，不把某一种设计包装成唯一标准答案。
+- 不给正式分数，不计每日新题配额，不把未实现设计写成用户已经完成的项目经历。
+- 只有用户明确要求沉淀时，才写回对应项目文档；不得自动登记为已完成 practice。
 
-用户说“你怎么又失忆了”“进度不对”时，停止推断，重新读取文件后纠正。
-
-## 出题格式
+## 出题
 
 ```markdown
-🎯 第N题（方向 · 子方向）
+第N题（方向 · 主题）
 
-题目来源：
-① `相对路径/文件.md`：原题摘要
-② `相对路径/文件.md`：原题摘要
+来源：
+① `content/.../source.md`：原题摘要
 
 题目：{题目正文}
 ```
 
-规则：
+- 来源必须在仓库中真实存在。
+- 默认一次一道，不提前给答案、评分点和提示。
+- 正式模拟从题池第一道未完成正式题开始，跳过“待补档”和“项目研读支线”。
+- 用户一次回答多题时可以批量处理，但每题独立记录。
 
-- 来源必须来自 `active-batch-plan.md` 或仓库内真实面经文件。
-- 一次只发一道题。
-- 不附标准答案、评分点、提示或 Demo。
-- 微信中优先用 `①②③`，避免复杂嵌套列表。
+## 回答与追问
 
-## 用户回答后的反馈
+正式模拟回答后立即给：
 
-不要用连续追问代替教学。按以下顺序一次性回答：
+1. 评分；
+2. 答对的部分；
+3. 明确错误和遗漏；
+4. 完整原理与工程边界；
+5. 适合时提供最小 Java Demo；
+6. 可直接口述的面试答案。
 
-1. **评分：X/10**
-2. **答对的部分**
-3. **需要纠正或补充的部分**
-4. **完整原理**：结合实际场景讲清楚。
-5. **Java Demo**：题目适合代码时提供最小可运行示例和关键注释。
-6. **方案对比**：存在多个概念或方案时给对比表。
-7. **面试回答模板**：给一段可直接口述的答案。
+评分只评价用户原始回答。用户说“不会”时可以记 `0/10（未作答）`，正文、frontmatter
+和台账必须一致。
 
-评分只评价用户这次回答，不把后续补充答案算进原始得分。用户说“不会”或“记不清”时可以低分，但仍要完整教学。
+技术结论必须区分：
 
-## 追问
+- 已核实的稳定事实；
+- 依赖版本或配置的结论；
+- 工程上的可选方案；
+- 当前项目尚未验证的设计假设。
 
-用户对当前答案继续提问时：
+不能把可选架构说成唯一答案。发现前答错误时明确写“GPT 纠错”，不能为了保持前后一致
+继续传播错误。模型身份、知识截止时间和产品能力没有配置或官方证据时，直接说无法确认，
+禁止根据“自己能回忆到什么”反推。
 
-- 直接回答当前追问，不切换下一题。
-- 结合上下文解释，不重复整份标准答案。
-- 发现前一轮回答有错误时明确纠正。
-- 技术结论涉及版本差异、产品能力或精确参数时先查证。
-- 用户说“下一题/下一次”后才结束当前题。
+## 保存
 
-## 保存 Practice 文件
+正式模拟写入 `content/opportunity/practice/NN-topic.md`。不得覆盖用户原始回答，追问按日期
+追加，最终修正版采用最后核实的结论。
 
-用户完成初次回答后，将内容保存到 `/root/interview/content/opportunity/practice/NN-topic.md`。若文件已存在，追加本轮追问，不覆盖旧轮次。
+同时同步必要的：
 
-固定 frontmatter：
-
-```yaml
----
-question: 第N题 · 方向 · 主题
-date: YYYY-MM-DD
-score: X/10
-round: R0
-next_review: YYYY-MM-DD (R1)
-source:
-  - 相对路径/来源1.md
-  - 相对路径/来源2.md
----
-```
-
-正文固定结构：
-
-```markdown
-## 第N题 · 方向 · 主题
-
-### 题目
-### 用户原始回答
-### 评分与扣分点
-### GPT 纠错
-### 完整答案
-### Java Demo
-### 对比速查
-### 面试回答模板
-### 追问记录
-### 本轮收获
-```
+- `README.md`
+- `active-batch-plan.md`
+- `review-schedule.md`
+- `daily-log.md`
 
 规则：
 
-- “GPT 纠错”只纠正技术内容，不改写用户原话。
-- 多轮讨论在“追问记录”下按日期和轮次追加。
-- 初次完成标记 R0；回顾轮次按完成日期计算，不按“第几次回顾”猜测。
-- 新建或修改后同步更新 `content/opportunity/practice/README.md`、`content/opportunity/practice/review-schedule.md` 和 `content/opportunity/practice/daily-log.md`。
+- 完成题在 `active-batch-plan.md` 标记完成。
+- `review-schedule.md` 不得继续把完成题列为候选新题。
+- `daily-log.md` 只记录事实，计划不等于完成。
+- 四份文件中的题号、轨道和题名必须一致。
 
-## Daily Log 固定格式
+项目研读默认只保留当前会话。用户明确要求沉淀时，优先更新
+`content/projects/interview-harness/` 等对应项目文档，不创建带分数的 practice 文件。
 
-每天只允许一个 `## YYYY-MM-DD` 区块：
+## Git
 
-```markdown
-## YYYY-MM-DD
-
-- 计划新题：#N、#N；无则写“无”
-- 实际完成：#N、#N；无则写“无”
-- 顺延新题：#N、#N；无则写“无”
-- 回顾完成：#N（R1）；无则写“无”
-- 回顾顺延：#N（R1，P0）；无则写“无”
-- 次日新题：#N、#N；未确定写“unknown”
-- 新增或修改文件：`content/opportunity/practice/文件.md`；无则写“无”
-- 提交：`commit_hash`；未提交写“pending”
-- 推送：Gitee 成功/失败/pending；GitHub 成功/失败/pending
-```
-
-计划不等于完成。无法从 Git、practice 文件或当前对话确认的字段写 `unknown`，不得猜测。
-
-## Git 流程
-
-每道题首次保存或追问整理完成后：
+写文件前先执行：
 
 ```bash
-cd /root/interview
-git status --short
-git add content/opportunity/practice/NN-topic.md content/opportunity/practice/README.md content/opportunity/practice/review-schedule.md content/opportunity/practice/daily-log.md
-git commit -m "feat: 第N题 主题"
+cd ~/interview
+git status --short --branch
+git fetch --all --prune
 ```
 
-默认只提交、不推送，避免用户还要追加追问。用户明确说“推送”“保存推送”或当天晚间整理时：
+工作区不干净、远端领先或分叉时，先停止写入并报告。不得 stash、reset、强推、覆盖文件，
+也不得在存在冲突标记时声称合并完成。
+
+提交前运行：
 
 ```bash
-git pull --rebase origin master
-git push origin master
-git push github master
+python3 scripts/validate_practice_metadata.py
+node scripts/check-repository-conventions.js
+node scripts/build-index.js
+node scripts/check-visibility.js
+node --test tests/*.test.js
 ```
 
-推送成功后更新 daily-log 的提交和双端状态；若因此产生新提交，再双推一次。禁止用 `reset --hard`、强推或删除用户修改来解决冲突。
+`check-repository-conventions.js` 必须通过，它会拦截 `<<<<<<<` 和 `>>>>>>>` 冲突标记。
+只暂存当前题和必要台账，禁止 `git add -A`。提交与推送状态分别按真实结果记录。
 
-## 每日任务
+## 记忆边界
 
-- 工作日默认 3 道新题。
-- 周六、周日和中国法定节假日默认 5 道新题。
-- 旧题回顾不占新题名额，根据实际时间完成，不虚构完成状态。
-- 某天未完成时，新题按原顺序顺延；第二天只展示合并后的单一计划，不罗列多天积压制造混乱。
-- 晚间整理只记录事实，不代替用户完成题目。
+- 普通聊天、情绪、单次措辞和一次性偏好不写入长期记忆。
+- “简洁一点”“节省 Token”等单轮反馈只影响当前会话，不生成永久规则。
+- 技术纠错写入 practice 或项目文档，不写入全局记忆。
+- 只有用户明确要求长期保存，且内容稳定、跨场景有效时，才允许更新记忆。
+- 不自动修改本 Skill；Skill 只通过人工维护和 Git 审计更新。
 
-## 技术回答偏好
+## 禁止
 
-- 面向 Java 后端开发岗位，基础设施重点讲应用代码、业务风险和工程兜底。
-- MySQL 概念可主动类比 Oracle；涉及数据库对比时再补 OceanBase。
-- 版本差异不是核心时，用一句话说明，重点讲稳定原理。
-- Demo 使用 Java，并给中文关键注释。
-- 回答可以详细，但先给结论和结构，避免堆砌无关扩展。
-
-## Hermes 源码研读 Action
-
-用户说“学习 Hermes 插件”“继续 Hermes 源码”“Hermes Hook”“扩展点 Action”时：
-
-1. 读取 `references/hermes-plugin-hooks-guide.md`。
-2. 先确认用户上次完成到哪个 Action；无法确认时从 Action 1 开始。
-3. 每次只讲一个章节或执行一个 Action，不一次倾倒全文。
-4. 先结合 Hermes `0.18.0` 源码解释，再让用户复述关键链路。
-5. 用户复述后指出错误，并安排文档中对应的最小实验。
-6. 实验代码写入 `hermes-agent-plugins` 项目，不修改 Hermes 核心源码。
-7. Action 完成情况只记录在该项目后续新增的学习进度文件，不计入 `practice/` 题目数量和得分。
-
-## 禁止事项
-
-- 不展示伪造或缓存中的进度列表。
-- 不自行调整题号、重排题池或生成新计划。
-- 不把答案和题目一起发出。
-- 不把普通聊天、链接处理、模型能力争议或单次事故写入本 Skill。
-- 不自动编辑、扩写或“自我进化”本 Skill。
-- 不把 API Key、服务器信息或聊天隐私写入仓库。
+- 不伪造进度、来源、项目经历、分数或推送结果。
+- 不把计划题登记为完成题。
+- 不把项目草稿当作用户已经实现的简历项目。
+- 不用单次对话修补长期记忆或 Skill。
+- 不把密钥、服务器隐私或无关聊天写入仓库。

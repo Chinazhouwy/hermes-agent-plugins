@@ -19,7 +19,7 @@ plugins/model-telemetry/
 ├── plugin.yaml       # 插件元数据，以及告诉 Hermes 要监听哪些 Hook
 └── test_plugin.py    # 自动化测试，可当作使用示例看
 
-scripts/install.sh    # 将插件复制到 Hermes 配置目录
+scripts/install.sh    # 将插件和 interview-practice Skill 复制到 Hermes 配置目录
 skills/interview-practice/SKILL.md
                       # 精简、可版本管理的面试练习 Skill
 skills/interview-practice/references/hermes-plugin-hooks-guide.md
@@ -81,7 +81,7 @@ python3 plugins/model-telemetry/test_plugin.py
 
 ## 安装
 
-默认安装到当前 Hermes 配置目录：
+默认安装插件和面试 Skill 到当前 Hermes 配置目录：
 
 ```bash
 ./scripts/install.sh
@@ -102,6 +102,13 @@ plugins:
 ```
 
 重启 Hermes Gateway 后生效。
+
+安装目标：
+
+```text
+~/.hermes/plugins/model-telemetry/
+~/.hermes/skills/research/interview-practice/
+```
 
 ## 可选配置
 
