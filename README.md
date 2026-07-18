@@ -110,6 +110,9 @@ plugins:
 ~/.hermes/skills/research/interview-practice/
 ```
 
+如果服务器上的 `SKILL.md` 已使用 immutable 属性防止 Agent 自行改写，安装脚本会在替换时
+临时解除，并在完成或异常退出时恢复该属性。
+
 ## 可选配置
 
 允许面试会话切换到 GPT：
